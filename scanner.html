@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Scanner de Rede Local com IP Local</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background: #f2f2f2; }
+    h1 { color: #333; }
+    #resultados { margin-top: 20px; }
+    .item { margin: 5px 0; padding: 10px; background: #fff; border: 1px solid #ccc; border-radius: 6px; }
+    .item a { color: #007bff; text-decoration: none; font-weight: bold; }
+    .item a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <h1>Scanner de Rede Local</h1>
+  <p>Este scanner tentará detectar automaticamente o seu IP local e varrer a sub-rede correspondente.</p>
+  <button onclick="detectarIP()">Detectar IP e Iniciar</button>
+  <div id="resultados"></div>
+
+  <script>
+    function detectarIP() {
+      let pc = new RTCPeerConnection({iceServers:[]});
+      pc.createDataChannel("");
+      pc.createOffer().then(offer => pc.setLocalDescription(offer)).catch(console.error);
+      pc.onicecandidate = event => {
+        if (!event || !event.candidate) return;
+        const ipRegex = /([0-9]{1,3}(\.[0-9]{1,3}){3})/;
+        const ipMatch = event.candidate.candidate.match(ipRegex);
+        if (ipMatch) {
+          let ip = ipMatch[1];
+          let base = ip.split(".").slice(0, 3).join(".") + ".";
+          console.log("IP Local detectado:", ip);
+          scanRede(base);
+          pc.close();
+        }
+      };
+    }
+
+    async function scanRede(baseIP) {
+      const resultados = document.getElementById("resultados");
+      resultados.innerHTML = "<p>Varredura em andamento na rede: <b>" + baseIP + "1-254</b></p>";
+      const encontrados = [];
+
+      for (let i = 1; i <= 254; i++) {
+        const ip = baseIP + i;
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 1000);
+
+          await fetch("http://" + ip + "/", { signal: controller.signal, mode: 'no-cors' });
+          clearTimeout(timeout);
+
+          encontrados.push(ip);
+          resultados.innerHTML += `<div class="item">Dispositivo encontrado: <a href="http://${ip}" target="_blank">${ip}</a></div>`;
+        } catch (err) {
+          // esperado se o IP não respondeu
+        }
+      }
+
+      if (encontrados.length === 0) {
+        resultados.innerHTML += "<p>Nenhum dispositivo encontrado.</p>";
+      }
+    }
+  </script>
+</body>
+</html>
